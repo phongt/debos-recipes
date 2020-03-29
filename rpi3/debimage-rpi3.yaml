@@ -1,24 +1,35 @@
-{{- $firmware_version := or .firmware_version "1.20180919" -}}
 {{- $image := or .image "debian-rpi3.img" -}}
 
 architecture: arm64
 
 actions:
-  # Download all needed proprietary stuff first
-  - action: download
-    url: https://github.com/raspberrypi/firmware/archive/{{ $firmware_version }}.tar.gz
-    unpack: true     # Unpack downloaded file
-    name: firmware # name for usage directory with unpacked content in other actions
-
   - action: debootstrap
-    suite: "stretch"
+    suite: "buster"
     components:
       - main
+      - contrib
+      - non-free
     mirror: https://deb.debian.org/debian
     variant: minbase
 
   - action: apt
-    packages: [ sudo, openssh-server, adduser, systemd-sysv]
+    packages:
+      - sudo
+      - openssh-server
+      - adduser
+      - systemd-sysv
+      - net-tools
+      - iproute2
+      - resolvconf
+      - connman
+      - wpasupplicant
+      - wireless-tools
+      - vim
+      - linux-image-arm64
+      - raspi3-firmware
+      - firmware-brcm80211
+      - u-boot-rpi
+      - u-boot-menu
 
   - action: run
     chroot: true
@@ -35,22 +46,6 @@ actions:
     chroot: true
     script: scripts/setup-networking.sh
 
-  - action: apt
-    recommends: false
-    packages:
-      - linux-image-arm64
-      - u-boot-rpi
-
-  # add firmware
-  - action: overlay
-    origin: firmware
-    source: firmware-{{ $firmware_version }}/boot
-    destination: /boot/firmware
-
-  - action: run
-    chroot: true
-    command: rm -rf /boot/firmware/kernel*.img /boot/firmware/*.dtb /boot/firmware/overlays
-
   - action: run
     chroot: true
     command: cp /usr/lib/u-boot/rpi_3/* /boot/firmware/
@@ -58,10 +53,6 @@ actions:
   - action: overlay
     source: overlays/fw-config
     destination: /boot/firmware
-
-  - action: run
-    chroot: true
-    command: echo console=ttyS0,115200 > /etc/kernel/cmdline
 
   - action: overlay
     source: overlays/u-boot-menu
@@ -72,7 +63,7 @@ actions:
 
   - action: image-partition
     imagename: {{ $image }}
-    imagesize: 1GB
+    imagesize: 4GB
     partitiontype: msdos
     mountpoints:
       - mountpoint: /
@@ -84,10 +75,10 @@ actions:
       - name: firmware
         fs: fat32
         start: 0%
-        end: 64MB
+        end: 512MB
       - name: root
         fs: ext4
-        start: 64MB
+        start: 512MB
         end: 100%
         flags: [ boot ]
 
